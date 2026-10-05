@@ -1,69 +1,241 @@
-import Image from "next/image";
+'use client'
+
+import { useActionState, useEffect, useRef } from 'react'
+import { useFormStatus } from 'react-dom'
+import { createUser, getUsers, type FormState, type User } from './actions'
+import { useState } from 'react'
+
+const initialState: FormState = {
+  success: false,
+  message: '',
+  errors: {},
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      style={{
+        padding: '10px 24px',
+        background: pending ? '#94a3b8' : '#2563eb',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 6,
+        cursor: pending ? 'not-allowed' : 'pointer',
+        fontSize: 15,
+        transition: 'background 0.2s',
+      }}
+    >
+      {pending ? 'Submitting…' : 'Create User'}
+    </button>
+  )
+}
+
+function UserCard({ user }: { user: User }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '10px 14px',
+        border: '1px solid #e2e8f0',
+        borderRadius: 8,
+        background: '#f8fafc',
+      }}
+    >
+      {/* Avatar circle with initials */}
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: '#2563eb',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 700,
+          fontSize: 16,
+          flexShrink: 0,
+        }}
+      >
+        {user.name.charAt(0).toUpperCase()}
+      </div>
+      <div>
+        <p style={{ margin: 0, fontWeight: 600, color: '#0f172a' }}>
+          {user.name}
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+          {user.email}
+        </p>
+      </div>
+      <p
+        style={{
+          marginLeft: 'auto',
+          fontSize: 11,
+          color: '#94a3b8',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {new Date(user.createdAt).toLocaleTimeString()}
+      </p>
+    </div>
+  )
+}
 
 export default function Home() {
+  const [state, formAction] = useActionState(createUser, initialState)
+  const [users, setUsers] = useState<User[]>([])
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Load users on mount
+  useEffect(() => {
+    getUsers().then(setUsers)
+  }, [])
+
+  // On success: reset the form and refresh the user list
+  useEffect(() => {
+    if (state.success && state.submittedUser) {
+      formRef.current?.reset()
+      setUsers((prev) => [...prev, state.submittedUser!])
+    }
+  }, [state])
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main style={{ maxWidth: 520, margin: '50px auto', fontFamily: 'sans-serif' }}>
+      <h1 style={{ marginBottom: 4, color: '#0f172a' }}>Server Action POC</h1>
+      <p style={{ color: '#64748b', marginBottom: 28, fontSize: 14 }}>
+        Form with server-side validation, pending state, duplicate prevention, and live user list.
+      </p>
+
+      {/* ── Form ─────────────────────────────────────────── */}
+      <form
+        ref={formRef}
+        action={formAction}
+        style={{
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 10,
+          padding: 24,
+          marginBottom: 32,
+        }}
+      >
+        <h2 style={{ margin: '0 0 20px', fontSize: 18, color: '#1e293b' }}>
+          Create a User
+        </h2>
+
+        {/* Name field */}
+        <div style={{ marginBottom: 16 }}>
+          <label
+            htmlFor="name"
+            style={{ display: 'block', fontWeight: 500, marginBottom: 4, color: '#334155' }}
+          >
+            Name
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="Jane Doe"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '9px 12px',
+              border: `1px solid ${state.errors.name ? '#ef4444' : '#cbd5e1'}`,
+              borderRadius: 6,
+              fontSize: 14,
+              boxSizing: 'border-box',
+              outline: 'none',
+            }}
+          />
+          {state.errors.name && (
+            <p style={{ margin: '4px 0 0', color: '#ef4444', fontSize: 13 }}>
+              {state.errors.name}
+            </p>
+          )}
+        </div>
+
+        {/* Email field */}
+        <div style={{ marginBottom: 20 }}>
+          <label
+            htmlFor="email"
+            style={{ display: 'block', fontWeight: 500, marginBottom: 4, color: '#334155' }}
+          >
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="jane@example.com"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '9px 12px',
+              border: `1px solid ${state.errors.email ? '#ef4444' : '#cbd5e1'}`,
+              borderRadius: 6,
+              fontSize: 14,
+              boxSizing: 'border-box',
+              outline: 'none',
+            }}
+          />
+          {state.errors.email && (
+            <p style={{ margin: '4px 0 0', color: '#ef4444', fontSize: 13 }}>
+              {state.errors.email}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <SubmitButton />
+
+          {/* Global message — success or generic error */}
+          {state.message && !state.errors.name && !state.errors.email && (
+            <p
+              style={{
+                margin: 0,
+                fontSize: 14,
+                color: state.success ? '#16a34a' : '#dc2626',
+              }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              {state.message}
+            </p>
+          )}
+        </div>
+      </form>
+
+      {/* ── Users list ───────────────────────────────────── */}
+      <div>
+        <h2 style={{ fontSize: 16, color: '#1e293b', marginBottom: 12 }}>
+          Registered Users{' '}
+          <span
+            style={{
+              background: '#e2e8f0',
+              borderRadius: 12,
+              padding: '2px 8px',
+              fontSize: 13,
+              color: '#475569',
+            }}
+          >
+            {users.length}
+          </span>
+        </h2>
+
+        {users.length === 0 ? (
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>
+            No users yet — submit the form above.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {users.map((u) => (
+              <UserCard key={u.id} user={u} />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  )
 }
